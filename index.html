@@ -1,0 +1,428 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>퀴즈 게임</title>
+    <style>
+        /* CSS 스타일링 */
+
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden; /* 폭죽 효과를 위해 스크롤바 숨김 */
+        }
+
+        .background {
+            background-image: url('https://raw.githubusercontent.com/Jacob0526/test12/refs/heads/main/Whisk_storyboard7928685e97214467a05e3fdc%20(1).png');
+            height: 100%;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: cover;
+            position: relative;
+            display: none;
+        }
+
+        #game-status {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 18px;
+            z-index: 100;
+            display: none;
+        }
+
+        #game-status span {
+            margin: 0 10px;
+        }
+
+        #hint-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            display: none;
+        }
+
+        #hint-btn {
+            background-color: #ffc107;
+            color: black;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        #hint-btn:hover {
+            background-color: #e0a800;
+        }
+        
+        .clickable-object {
+            position: absolute;
+            cursor: pointer;
+        }
+        
+        .clickable-object:hover, .hint-active {
+            outline: 3px solid yellow;
+        }
+
+        .solved {
+            position: absolute;
+            cursor: default;
+        }
+        
+        #tube { top: 65%; left: 15%; width: 100px; height: 100px; }
+        #slippers { top: 85%; left: 45%; width: 120px; height: 60px; }
+        #bed { top: 42%; left: 38%; width: 250px; height: 100px; }
+        #blanket { top: 55%; left: 40%; width: 200px; height: 150px; }
+        #towel { top: 55%; left: 78%; width: 80px; height: 130px; }
+
+
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            justify-content: center; align-items: center;
+            z-index: 200;
+        }
+        .modal-content {
+            background-color: white; padding: 30px; border-radius: 10px;
+            width: 80%; max-width: 500px; text-align: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        #start-screen .modal-content input {
+            display: block; width: calc(80% - 22px);
+            margin: 15px auto 0; padding: 10px;
+            border: 1px solid #ccc; border-radius: 5px;
+        }
+
+        #answer-input {
+            width: calc(100% - 22px); padding: 10px; margin-top: 15px;
+            border: 1px solid #ccc; border-radius: 5px;
+        }
+        
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        button {
+            padding: 10px 20px; border: none;
+            background-color: #007BFF; color: white;
+            border-radius: 5px; cursor: pointer;
+        }
+        
+        #chosung-hint-btn {
+            background-color: #ffc107;
+            color: black;
+            font-weight: bold;
+        }
+
+        #chosung-hint-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        button:hover { background-color: #0056b3; }
+        #chosung-hint-btn:hover:not(:disabled) { background-color: #e0a800; }
+
+        #hint-display {
+            margin-top: 15px;
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #d9534f;
+            min-height: 24px;
+        }
+        
+        #result-message { margin-top: 15px; font-weight: bold; min-height: 20px; }
+
+        #celebration-screen {
+            display: none;
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            justify-content: center; align-items: center;
+            text-align: center;
+            z-index: 300;
+        }
+
+        #celebration-message {
+            color: white;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px black;
+        }
+
+        .firework-particle {
+            position: absolute;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            opacity: 1;
+        }
+
+        @keyframes explode {
+            0% { transform: translate(0, 0); opacity: 1; }
+            100% { transform: var(--translate-x) var(--translate-y); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    
+    <div id="start-screen" class="modal-overlay" style="display: flex;">
+        <div class="modal-content">
+            <h2>퀴즈 게임 시작</h2>
+            <p>학년, 반, 이름을 입력해주세요.</p>
+            <input type="text" id="grade-input" placeholder="학년 (예: 1)">
+            <input type="text" id="class-input" placeholder="반 (예: 3)">
+            <input type="text" id="name-input" placeholder="이름 (예: 홍길동)">
+            <button id="start-game-btn">게임 시작</button>
+        </div>
+    </div>
+    
+    <div id="game-status">
+        <span id="remaining-count"></span>
+        <span id="timer">00:00</span>
+    </div>
+
+    <div id="hint-container">
+        <button id="hint-btn">힌트 보기</button>
+    </div>
+
+    <div class="background">
+        <div id="tube" class="clickable-object"></div>
+        <div id="slippers" class="clickable-object"></div>
+        <div id="bed" class="clickable-object"></div>
+        <div id="blanket" class="clickable-object"></div>
+        <div id="towel" class="clickable-object"></div>
+    </div>
+
+    <div id="quiz-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 id="question"></h2>
+            <p id="hint-display"></p>
+            <input type="text" id="answer-input" placeholder="정답을 입력하세요">
+            <div class="button-container">
+                <button id="chosung-hint-btn">초성 힌트</button>
+                <button id="submit-answer">정답 확인</button>
+            </div>
+            <p id="result-message"></p>
+        </div>
+    </div>
+
+    <div id="celebration-screen">
+        <p id="celebration-message"></p>
+    </div>
+
+    <script>
+        // JavaScript 로직
+
+        const quizzes = {
+            'tube': { question: "컴퓨터가 이해할 수 있는 언어(기계어)로 소스 코드를 번역해 주는 프로그램을 무엇이라고 할까요?", answer: "컴파일러" },
+            'slippers': { question: "파이썬에서 화면에 글자를 출력할 때 사용하는 기본 함수는 무엇일까요?", answer: "print" },
+            'bed': { question: "인공지능이 대량의 데이터를 학습하여 스스로 패턴을 찾아내고 예측하는 기술을 무엇이라고 할까요?", answer: "머신러닝" },
+            'blanket': { question: "웹 페이지의 구조를 만드는 데 사용되는 마크업 언어는 무엇일까요?", answer: "HTML" },
+            'towel': { question: "웹 페이지를 동적으로 만들고 사용자와의 상호작용을 처리하는 데 주로 사용되는 프로그래밍 언어는 무엇일까요?", answer: "JavaScript" }
+        };
+
+        const startScreen = document.getElementById('start-screen');
+        const startGameBtn = document.getElementById('start-game-btn');
+        const nameInput = document.getElementById('name-input');
+        const backgroundEl = document.querySelector('.background');
+        
+        const modal = document.getElementById('quiz-modal');
+        const questionEl = document.getElementById('question');
+        const answerInput = document.getElementById('answer-input');
+        const submitBtn = document.getElementById('submit-answer');
+        const resultMessageEl = document.getElementById('result-message');
+        
+        const remainingCountEl = document.getElementById('remaining-count');
+        const timerEl = document.getElementById('timer');
+        const gameStatusEl = document.getElementById('game-status');
+
+        const hintContainer = document.getElementById('hint-container');
+        const hintBtn = document.getElementById('hint-btn');
+        
+        const chosungHintBtn = document.getElementById('chosung-hint-btn');
+        const hintDisplay = document.getElementById('hint-display');
+        
+        const celebrationScreen = document.getElementById('celebration-screen');
+        const celebrationMessage = document.getElementById('celebration-message');
+        
+        let playerName = '';
+        let currentAnswer = '', currentObjectId = '';
+        const solvedQuizzes = new Set();
+        let remainingQuizzes = Object.keys(quizzes).length;
+        let timerInterval, startTime;
+
+        startGameBtn.addEventListener('click', () => {
+            playerName = nameInput.value.trim();
+            if (!playerName || !document.getElementById('grade-input').value.trim() || !document.getElementById('class-input').value.trim()) {
+                alert('학년, 반, 이름을 모두 입력해야 게임을 시작할 수 있습니다.');
+                return;
+            }
+
+            startScreen.style.display = 'none';
+            backgroundEl.style.display = 'block';
+            gameStatusEl.style.display = 'block';
+            hintContainer.style.display = 'block';
+
+            initGame();
+        });
+
+        hintBtn.addEventListener('click', () => {
+            const hintObject = document.querySelector('.clickable-object');
+            if (hintObject) {
+                hintObject.classList.add('hint-active');
+                setTimeout(() => {
+                    hintObject.classList.remove('hint-active');
+                }, 2000);
+            }
+        });
+
+        chosungHintBtn.addEventListener('click', () => {
+            const hint = generateChosungHint(currentAnswer);
+            hintDisplay.textContent = `초성 힌트: ${hint}`;
+            chosungHintBtn.disabled = true;
+        });
+        
+        function generateChosungHint(text) {
+            const chosung = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+            let hint = '';
+            for (let i = 0; i < text.length; i++) {
+                const code = text.charCodeAt(i);
+                if (code >= 44032 && code <= 55203) {
+                    const index = Math.floor((code - 44032) / 588);
+                    hint += chosung[index];
+                } else {
+                    hint += text[i];
+                }
+            }
+            return hint;
+        }
+
+        function createFireworks() {
+            for (let i = 0; i < 7; i++) { // 폭죽 개수를 7개로 늘려 더 화려하게
+                setTimeout(() => {
+                    const burst = document.createElement('div');
+                    burst.style.position = 'absolute';
+                    burst.style.left = `${Math.random() * 80 + 10}%`;
+                    burst.style.top = `${Math.random() * 70 + 15}%`;
+                    document.body.appendChild(burst);
+
+                    for (let j = 0; j < 30; j++) {
+                        const p = document.createElement('div');
+                        p.className = 'firework-particle';
+                        p.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                        const angle = Math.random() * 360, dist = Math.random() * 150 + 50;
+                        p.style.setProperty('--translate-x', `translateX(${Math.cos(angle * Math.PI / 180) * dist}px)`);
+                        p.style.setProperty('--translate-y', `translateY(${Math.sin(angle * Math.PI / 180) * dist}px)`);
+                        p.style.animation = `explode ${Math.random() * 0.5 + 0.8}s ease-out forwards`;
+                        burst.appendChild(p);
+                    }
+                    setTimeout(() => burst.remove(), 1500);
+                }, Math.random() * 1000);
+            }
+        }
+
+        function initGame() {
+            updateRemainingCount();
+            startTimer();
+        }
+
+        function updateRemainingCount() {
+            remainingCountEl.textContent = `남은 문제: ${remainingQuizzes}`;
+        }
+
+        function startTimer() {
+            startTime = Date.now();
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        function updateTimer() {
+            const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = String(Math.floor(elapsedTime / 60)).padStart(2, '0');
+            const seconds = String(elapsedTime % 60).padStart(2, '0');
+            timerEl.textContent = `${minutes}:${seconds}`;
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+
+        document.body.addEventListener('click', (e) => {
+            if (e.target.classList.contains('clickable-object')) {
+                currentObjectId = e.target.id;
+                const quiz = quizzes[currentObjectId];
+                if (quiz) {
+                    currentAnswer = quiz.answer;
+                    questionEl.textContent = quiz.question;
+                    resetModal();
+                    modal.style.display = 'flex';
+                }
+            }
+        });
+
+        submitBtn.addEventListener('click', () => {
+            const userAnswer = answerInput.value.trim();
+            if (!userAnswer) return;
+
+            const isCorrect = userAnswer.toLowerCase() === currentAnswer.toLowerCase() || (currentAnswer === 'JavaScript' && userAnswer === '자바스크립트');
+
+            if (isCorrect) {
+                resultMessageEl.textContent = "정답입니다! 🎉";
+                resultMessageEl.style.color = 'green';
+                
+                if (!solvedQuizzes.has(currentObjectId)) {
+                    solvedQuizzes.add(currentObjectId);
+                    remainingQuizzes--;
+                    updateRemainingCount();
+                    document.getElementById(currentObjectId).classList.remove('clickable-object');
+                }
+                
+                if (remainingQuizzes === 0) {
+                    stopTimer();
+                    const finalTime = timerEl.textContent;
+                    
+                    setTimeout(() => {
+                        gameStatusEl.style.display = 'none';
+                        hintContainer.style.display = 'none';
+                        celebrationMessage.innerHTML = `${playerName}님, 축하합니다! 🎉<br><small>최종 기록: ${finalTime}</small>`;
+                        celebrationScreen.style.display = 'flex';
+                        createFireworks();
+                    }, 1000);
+                }
+
+                setTimeout(() => { modal.style.display = 'none'; }, 1500);
+
+            } else {
+                resultMessageEl.textContent = `틀렸어요! 정답은 '${currentAnswer}'입니다.`;
+                resultMessageEl.style.color = 'red';
+            }
+        });
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+
+        function resetModal() {
+            answerInput.value = '';
+            resultMessageEl.textContent = '';
+            hintDisplay.textContent = '';
+            chosungHintBtn.disabled = false;
+        }
+
+    </script>
+</body>
+</html>
